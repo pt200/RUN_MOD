@@ -69,31 +69,8 @@ static void ICACHE_FLASH_ATTR wifi_check_ip(void *arg)
 	os_timer_setfn(&WiFiLinker, (os_timer_func_t *)wifi_check_ip, NULL);
 	os_timer_arm(&WiFiLinker, WIFI_CHECK_DELAY, 0);
 }
-
-
-LOCAL void ICACHE_FLASH_ATTR setup_wifi_st_mode(void)
-{
-	wifi_set_opmode(STATIONAP_MODE);
-	struct station_config stconfig;
-	wifi_station_disconnect();
-	wifi_station_dhcpc_stop();
-	if(wifi_station_get_config(&stconfig))
-	{
-		os_memset(stconfig.ssid, 0, sizeof(stconfig.ssid));
-		os_memset(stconfig.password, 0, sizeof(stconfig.password));
-		os_sprintf(stconfig.ssid, "%s", WIFI_CLIENTSSID);
-		os_sprintf(stconfig.password, "%s", WIFI_CLIENTPASSWORD);
-		if(!wifi_station_set_config(&stconfig))
-		{
-			_DEBUG("ESP8266 not set station config!\r\n");
-		}
-	}
-	wifi_station_connect();
-	wifi_station_dhcpc_start();
-	wifi_station_set_auto_connect(1);
-	_DEBUG("ESP8266 in STA mode configured.\r\n");
-}
 */
+
 /******************************************************************************
  * FunctionName : user_rf_cal_sector_set
  * Description  : SDK just reversed 4 sectors, used for rf init data and paramters.
@@ -143,8 +120,45 @@ void ICACHE_FLASH_ATTR user_rf_pre_init(void)
 {
 }
 
+/******************************************************************************
+ * FunctionName : user_set_station_config
+ * Description  : set the router info which ESP8266 station will connect to
+ * Parameters   : none
+ * Returns      : none
+*******************************************************************************/
+void ICACHE_FLASH_ATTR
+user_set_station_config(void)
+{
+   // Wifi configuration
+   struct station_config stationConf;
+
+   wifi_station_get_config( &stationConf);
+
+   if( os_strcmp( stationConf.ssid, AP_SSID) != 0)
+   {
+     os_memset(stationConf.ssid, 0, 32);
+     os_memset(stationConf.password, 0, 64);
+     //need not mac address
+     stationConf.bssid_set = 0;
+
+     //Set ap settings
+     os_memcpy(stationConf.ssid, AP_SSID, os_strlen( AP_SSID));
+     os_memcpy(stationConf.password, AP_PASS, os_strlen( AP_PASS));
+
+     wifi_station_set_config( &stationConf);
+     wifi_set_opmode( STATION_MODE);
+   }
+
+
+   //set a timer to check whether got ip from router succeed or not.
+//   os_timer_disarm(&test_timer);
+//    os_timer_setfn(&test_timer, (os_timer_func_t *)user_esp_platform_check_ip, NULL);
+//    os_timer_arm(&test_timer, 100, 0);
+}
+
 void ICACHE_FLASH_ATTR user_init(void)
 {
+/*
 	// Configure the UART
 	uart_init(BIT_RATE_115200, BIT_RATE_115200);
 	// Enable system messages
@@ -158,15 +172,10 @@ void ICACHE_FLASH_ATTR user_init(void)
 	ets_uart_printf("Free heap size = %d\n", system_get_free_heap_size());
 	ets_uart_printf("==== End System info ====\n");
 	ets_uart_printf("System init...\r\n");
-
-	/*
-	setup_wifi_st_mode();
-	if(wifi_get_phy_mode() != PHY_MODE_11N)
-		wifi_set_phy_mode(PHY_MODE_11N);
-	if(wifi_station_get_auto_connect() == 0)
-		wifi_station_set_auto_connect(1);
 */
-	wifi_set_opmode( SOFTAP_MODE);
+
+	//ESP8266 softAP set config.
+	user_set_station_config();
 
 
 	// Wait for Wi-Fi connection
@@ -177,5 +186,5 @@ void ICACHE_FLASH_ATTR user_init(void)
 */
 	DYN_Init( 1233);
 
-	ets_uart_printf("System init done.\n");
+//	ets_uart_printf("System init done.\n");
 }

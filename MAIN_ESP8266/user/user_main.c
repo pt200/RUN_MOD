@@ -20,8 +20,9 @@
 #include <mem.h>
 #include <os_type.h>
 #include "driver/uart.h"
+#include "driver/gpio16.h"
 #include "user_config.h"
-#include "DYN.h"
+#include "RUN.h"
 
 
 extern int ets_uart_printf(const char *fmt, ...);
@@ -116,8 +117,11 @@ uint32 ICACHE_FLASH_ATTR user_rf_cal_sector_set(void)
     return rf_cal_sec;
 }
 
-void ICACHE_FLASH_ATTR user_rf_pre_init(void)
+void ICACHE_FLASH_ATTR user_rf_pre_init(void)  // About 120ms after RST
 {
+//Lock RST pin
+	gpio16_output_conf();
+	gpio16_output_set( 0);
 }
 
 
@@ -129,28 +133,31 @@ void ICACHE_FLASH_ATTR user_rf_pre_init(void)
  * Parameters   : none
  * Returns      : none
 *******************************************************************************/
-void ICACHE_FLASH_ATTR
-user_set_softap_config(void)
+void ICACHE_FLASH_ATTR user_set_softap_config(void)
 {
    struct softap_config config;
  
-   wifi_softap_get_config(&config); // Get config first.
+   wifi_softap_get_config( &config); // Get config first.
     
-   os_memset(config.ssid, 0, 32);
-   os_memset(config.password, 0, 64);
-   os_memcpy(config.ssid, AP_SSID, os_strlen( AP_SSID));
-   os_memcpy(config.password, AP_PASS, os_strlen( AP_PASS));
-   config.authmode = AUTH_WPA_WPA2_PSK;
-   config.ssid_len = 0;// or its actual length
-   config.max_connection = 4; // how many stations can connect to ESP8266 softAP at most.
+   if( os_strcmp( config.ssid, AP_SSID) != 0)
+   {
+     os_memset(config.ssid, 0, 32);
+     os_memset(config.password, 0, 64);
+     os_memcpy(config.ssid, AP_SSID, os_strlen( AP_SSID));
+     os_memcpy(config.password, AP_PASS, os_strlen( AP_PASS));
+     config.authmode = AUTH_WPA_WPA2_PSK;
+     config.ssid_len = 0;// or its actual length
+     config.max_connection = 4; // how many stations can connect to ESP8266 softAP at most.
  
-   wifi_softap_set_config(&config);// Set ESP8266 softap config .
-    
+     wifi_softap_set_config(&config);// Set ESP8266 softap config .
+     wifi_set_opmode( SOFTAP_MODE);
+   }
 }
  
 
-void ICACHE_FLASH_ATTR user_init(void)
+void ICACHE_FLASH_ATTR user_init(void) // About 140ms after RST
 {
+/*
 	// Configure the UART
 	uart_init(BIT_RATE_115200, BIT_RATE_115200);
 	// Enable system messages
@@ -164,13 +171,13 @@ void ICACHE_FLASH_ATTR user_init(void)
 	ets_uart_printf("Free heap size = %d\n", system_get_free_heap_size());
 	ets_uart_printf("==== End System info ====\n");
 	ets_uart_printf("System init...\r\n");
+*/
 
-	wifi_set_opmode( STATIONAP_MODE);
 	// ESP8266 softAP set config.
 	user_set_softap_config();
 
 
-	DYN_Init( 1233);
+	RUN_Init( 0);
 
-	ets_uart_printf("System init done.\n");
+//	ets_uart_printf("System init done.\n");
 }
